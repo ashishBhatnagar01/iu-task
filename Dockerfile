@@ -10,7 +10,7 @@ COPY . .
 
 RUN npm run build
 
-RUN MKDIR /dist/uploads
+RUN mkdir -p dist/uploads
 
 EXPOSE 4000
 
