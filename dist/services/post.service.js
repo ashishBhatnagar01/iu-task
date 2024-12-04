@@ -50,6 +50,17 @@ const post_model_1 = __importDefault(require("../models/post.model"));
 const tag_model_1 = __importDefault(require("../models/tag.model"));
 const AWS = __importStar(require("aws-sdk"));
 const fs = __importStar(require("fs"));
+let s3;
+if (process.env.NODE_ENV === "PRODUCTION") {
+    s3 = new AWS.S3({});
+}
+else {
+    s3 = new AWS.S3({
+        region: "ap-south-1",
+        accessKeyId: process.env.ACCESS_KEY,
+        secretAccessKey: process.env.SECRET_ACCESS_KEY,
+    });
+}
 const createPost = (title, description, imageUrl, tagIds, key) => __awaiter(void 0, void 0, void 0, function* () {
     const post = new post_model_1.default({
         title,
@@ -100,26 +111,32 @@ const getPostByTagId = (tagId) => __awaiter(void 0, void 0, void 0, function* ()
 });
 exports.getPostByTagId = getPostByTagId;
 const uploadFileToS3 = (file) => {
-    const s3 = new AWS.S3({
-        region: "ap-south-1",
-        accessKeyId: process.env.ACCESS_KEY,
-        secretAccessKey: process.env.SECRET_ACCESS_KEY,
+    return new Promise((resolve, reject) => {
+        const fileStream = fs.createReadStream(file.path);
+        const params = {
+            Bucket: process.env.BUCKET_NAME,
+            Key: file.filename,
+            Body: fileStream,
+        };
+        s3.upload(params, (err, data) => {
+            if (err) {
+                reject(err);
+            }
+            else {
+                resolve(data);
+                fs.unlink(file.path, (unlinkErr) => {
+                    if (unlinkErr) {
+                        console.error("Error deleting the local file:", unlinkErr);
+                    }
+                    else {
+                        console.log("Local file deleted after upload");
+                    }
+                });
+            }
+        });
     });
-    const fileStream = fs.createReadStream(file.path);
-    const params = {
-        Bucket: process.env.BUCKET_NAME,
-        Key: file.filename,
-        Body: fileStream,
-    };
-    return s3.upload(params).promise();
 };
 exports.uploadFileToS3 = uploadFileToS3;
-AWS.config.update({
-    region: "ap-south-1",
-    accessKeyId: process.env.ACCESS_KEY,
-    secretAccessKey: process.env.SECRET_ACCESS_KEY,
-});
-const s3 = new AWS.S3({});
 const generateSignedUrl = (key) => {
     try {
         const params = {

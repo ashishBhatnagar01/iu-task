@@ -4,6 +4,17 @@ import Tag from "../models/tag.model";
 import * as AWS from "aws-sdk";
 import * as fs from "fs";
 
+let s3;
+if (process.env.NODE_ENV === "PRODUCTION") {
+  s3 = new AWS.S3({});
+} else {
+  s3 = new AWS.S3({
+    region: "ap-south-1",
+    accessKeyId: process.env.ACCESS_KEY,
+    secretAccessKey: process.env.SECRET_ACCESS_KEY,
+  });
+}
+
 export const createPost = async (
   title: string,
   description: string,
@@ -75,28 +86,29 @@ export const getPostByTagId = async (tagId: string) => {
 };
 
 export const uploadFileToS3 = (file: Express.Multer.File) => {
-  const s3 = new AWS.S3({
-    region: "ap-south-1",
-    accessKeyId: process.env.ACCESS_KEY,
-    secretAccessKey: process.env.SECRET_ACCESS_KEY,
+  return new Promise((resolve, reject) => {
+    const fileStream = fs.createReadStream(file.path);
+    const params = {
+      Bucket: process.env.BUCKET_NAME as string,
+      Key: file.filename,
+      Body: fileStream,
+    };
+    s3.upload(params, (err: any, data: any) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(data);
+        fs.unlink(file.path, (unlinkErr) => {
+          if (unlinkErr) {
+            console.error("Error deleting the local file:", unlinkErr);
+          } else {
+            console.log("Local file deleted after upload");
+          }
+        });
+      }
+    });
   });
-
-  const fileStream = fs.createReadStream(file.path);
-  const params = {
-    Bucket: process.env.BUCKET_NAME as string,
-    Key: file.filename,
-    Body: fileStream,
-  };
-  return s3.upload(params).promise();
 };
-
-AWS.config.update({
-  region: "ap-south-1",
-  accessKeyId: process.env.ACCESS_KEY,
-  secretAccessKey: process.env.SECRET_ACCESS_KEY,
-});
-
-const s3 = new AWS.S3({});
 
 const generateSignedUrl = (key: string) => {
   try {

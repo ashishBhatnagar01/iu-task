@@ -10,7 +10,7 @@ import {
 
 export const addPost = async (req: Request, res: Response): Promise<any> => {
   try {
-    const upload = await uploadFileToS3(req.file as Express.Multer.File);
+    const upload: any = await uploadFileToS3(req.file as Express.Multer.File);
     console.log(upload);
     const { title, description, tagIds } = req.body;
     const data = await createPost(
